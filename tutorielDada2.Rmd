@@ -1,0 +1,185 @@
+---
+title: "R Notebook"
+output: github_document
+---
+
+tutoriel de reférence: https://benjjneb.github.io/dada2/tutorial.html
+```{bash, eval=FALSE}
+wget https://github.com/ANF-MetaBioDiv/course-material/archive/refs/heads/main.zip
+```
+
+
+```{bash, eval=FALSE}
+unzip main.zip
+```
+
+Packages::Les deux points servent de prendre la fonction here dans le package here. 
+```{r, eval=FALSE}
+refdb_folder <- here::here("data", "refdb")
+refdb_folder
+```
+
+Cette condition permet de ne pas remplacer un dossier existant avec le même nom
+```{r, eval=FALSE}
+if (!dir.exists(refdb_folder)) 
+  dir.create(refdb_folder, recursive = TRUE)
+```
+
+Différence entre script 
+Script= ligne de code avec des texte (#)
+rnotebook= zone réservé pour le code mais on peut mettre du texte, et affiche le résultat
+markdown ou .md est interprété par github
+```{bash, eval=FALSE}
+cp -R course-material-main/data/raw ./data
+```
+
+
+
+getOption= r s'arrete au bout de 60 secondes permet d'allonger ce temps pour les pc lents
+```{r, echo=FALSE}
+getOption("timeout")
+```
+
+
+download.file équivalent de wget (intall a partir d'un site)
+```{r, echo=FALSE}
+options(timeout = 1200)
+silva_train_set <- file.path(refdb_folder,
+                             "silva_nr99_v138.1_train_set.fa.gz")
+silva_species_assignment <- file.path(refdb_folder,
+                                      "silva_species_assignment_v138.1.fa.gz")
+if (!file.exists(silva_train_set)) {
+  download.file(
+    "https://zenodo.org/record/4587955/files/silva_nr99_v138.1_train_set.fa.gz",
+    silva_train_set,
+    quiet = TRUE)
+}
+
+if (!file.exists(silva_species_assignment)) {
+  download.file(
+    "https://zenodo.org/record/4587955/files/silva_species_assignment_v138.1.fa.gz",
+    silva_species_assignment,
+    quiet = TRUE)
+}
+```
+
+chercher toutes les fonctions dans R
+```{r, echo=FALSE}
+devtools::load_all(path="/home/rstudio/Adm2023_tutoriel/course-material-main/R")
+```
+```{r}
+path_to_fastqs<-here::here("data","raw")
+```
+
+on met la liste des fichiers qui contient le path
+tous les chemins contenant 
+```{r}
+fnFs <- sort(list.files(path_to_fastqs,
+                        pattern = "_R1.fastq.gz",
+                        full.names = TRUE))
+```
+
+
+```{r}
+fnRs <- sort(list.files(path_to_fastqs,
+                        pattern = "_R2.fastq.gz",
+                        full.names = TRUE))
+```
+
+Découpe les chaines de caractères en mettant des espaces
+```{r}
+sample_names <- basename(fnFs) |>
+  strsplit(split = "_") |>
+  sapply(head, 1)
+```
+
+
+```{r}
+basename(fnFs) |>
+  head()
+```
+
+```{r}
+basename(fnFs) |>
+  strsplit(split = "_") |>
+  head()
+```
+```{r}
+basename(fnFs) |>
+  strsplit(split = "_") |>
+  sapply(head, 1) |>
+  head()
+```
+
+```{r}
+gsub("^.+/|_.+$", "", fnFs) |> head()
+```
+
+```{r}
+# create a directory for the outputs
+quality_folder <- here::here("outputs",
+                             "dada2",
+                             "quality_plots")
+
+if (!dir.exists(quality_folder)) {
+  dir.create(quality_folder, recursive = TRUE)
+}
+
+qualityprofile(fnFs,
+               fnRs,
+               file.path(quality_folder, "quality_plots.pdf"))
+```
+
+
+
+
+On créer plusieurs dans le fichier départ on outputs puis dada2 puis trimmed (here= p
+fichier résultats)
+```{r}
+path_to_trimmed_reads <- here::here(
+  "outputs",
+  "dada2",
+  "trimmed"
+)
+
+if (!dir.exists(path_to_trimmed_reads)) dir.create(path_to_trimmed_reads, recursive = TRUE)
+```
+
+amorces définit dans une variable
+```{r}
+primer_fwd  <- "CCTACGGGNBGCASCAG"
+primer_rev  <- "GACTACNVGGGTATCTAAT"
+```
+
+
+fnFS=brin 1 et fnFr= brin 2 (en gros c'est forward et reverse)
+```{r}
+Biostrings::readDNAStringSet(
+  fnFs[1],
+  format = "fastq",
+  nrec = 10
+)
+```
+
+```{r}
+Biostrings::readDNAStringSet(
+  fnRs[1],
+  format = "fastq",
+  nrec = 10
+)
+```
+
+
+
+primer_trim enlèce les amorces
+```{r}
+(primer_log <- primer_trim(
+  forward_files = fnFs,
+  reverse_files = fnRs,
+  primer_fwd = primer_fwd,
+  primer_rev = primer_rev,
+  output_dir = path_to_trimmed_reads,
+  min_size = 200
+))
+```
+
